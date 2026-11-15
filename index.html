@@ -1,0 +1,302 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistem Pengawasan Ujian</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f1f5f9;
+    margin: 0;
+    padding: 25px;
+    text-align: center;
+}
+
+.container {
+    max-width: 650px;
+    margin: auto;
+    background: white;
+    padding: 25px;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px #0002;
+}
+
+h1 {
+    color: #3730a3;
+}
+
+.status {
+    padding: 15px;
+    background: #dcfce7;
+    color: #166534;
+    border-radius: 8px;
+    margin: 20px 0;
+    font-weight: bold;
+}
+
+.warning {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.counter {
+    font-size: 45px;
+    color: #dc2626;
+    font-weight: bold;
+}
+
+button {
+    padding: 13px 20px;
+    border: none;
+    border-radius: 8px;
+    margin: 8px;
+    cursor: pointer;
+    color: white;
+    font-size: 15px;
+}
+
+.start {
+    background: #16a34a;
+}
+
+.stop {
+    background: #dc2626;
+}
+
+.reset {
+    background: #2563eb;
+}
+
+#log {
+    text-align: left;
+    background: #f8fafc;
+    padding: 15px;
+    border-radius: 8px;
+    min-height: 60px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>🔔 SISTEM PENGAWASAN UJIAN</h1>
+
+<p>Monitoring perpindahan tab dan layar selama ujian.</p>
+
+<div id="status" class="status">
+    STATUS: UJIAN BELUM DIMULAI
+</div>
+
+<h3>Jumlah Peringatan</h3>
+
+<div class="counter" id="counter">0</div>
+
+<p>Jumlah perpindahan layar terdeteksi</p>
+
+<button class="start" onclick="mulaiUjian()">
+    MULAI UJIAN
+</button>
+
+<button class="stop" onclick="akhiriUjian()">
+    AKHIRI UJIAN
+</button>
+
+<button class="reset" onclick="resetUjian()">
+    RESET
+</button>
+
+<h3>Riwayat Peringatan</h3>
+
+<div id="log">
+    Belum ada aktivitas.
+</div>
+
+</div>
+
+<script>
+
+let ujianAktif = false;
+let jumlahPeringatan = 0;
+
+let audioContext = null;
+
+// Membuat nada dering menggunakan Web Audio API
+function bunyikanAlarm() {
+
+    if (!audioContext) {
+        audioContext = new (
+            window.AudioContext ||
+            window.webkitAudioContext
+        )();
+    }
+
+    if (audioContext.state === "suspended") {
+        audioContext.resume();
+    }
+
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(
+        900,
+        audioContext.currentTime
+    );
+
+    gain.gain.setValueAtTime(
+        0.5,
+        audioContext.currentTime
+    );
+
+    gain.gain.exponentialRampToValueAtTime(
+        0.01,
+        audioContext.currentTime + 0.7
+    );
+
+    oscillator.start();
+
+    oscillator.stop(
+        audioContext.currentTime + 0.7
+    );
+}
+
+// Memulai ujian
+function mulaiUjian() {
+
+    ujianAktif = true;
+
+    // Mengaktifkan audio setelah interaksi pengguna
+    if (!audioContext) {
+        audioContext = new (
+            window.AudioContext ||
+            window.webkitAudioContext
+        )();
+    }
+
+    audioContext.resume();
+
+    document.getElementById("status").innerText =
+        "STATUS: UJIAN SEDANG BERLANGSUNG";
+
+    document.getElementById("status").className =
+        "status";
+
+    catatLog("Ujian dimulai.");
+
+}
+
+// Mengakhiri ujian
+function akhiriUjian() {
+
+    ujianAktif = false;
+
+    document.getElementById("status").innerText =
+        "STATUS: UJIAN TELAH BERAKHIR";
+
+    document.getElementById("status").className =
+        "status";
+
+    catatLog("Ujian telah berakhir.");
+
+}
+
+// Reset ujian
+function resetUjian() {
+
+    ujianAktif = false;
+    jumlahPeringatan = 0;
+
+    document.getElementById("counter").innerText = "0";
+
+    document.getElementById("status").innerText =
+        "STATUS: UJIAN BELUM DIMULAI";
+
+    document.getElementById("status").className =
+        "status";
+
+    document.getElementById("log").innerHTML =
+        "Belum ada aktivitas.";
+
+}
+
+// Mencatat aktivitas
+function catatLog(pesan) {
+
+    const log = document.getElementById("log");
+
+    const waktu = new Date().toLocaleTimeString();
+
+    const item = document.createElement("p");
+
+    item.textContent = waktu + " - " + pesan;
+
+    log.prepend(item);
+
+}
+
+// Mendeteksi perpindahan tab
+document.addEventListener(
+    "visibilitychange",
+    function() {
+
+        if (
+            ujianAktif &&
+            document.hidden
+        ) {
+
+            beriPeringatan(
+                "Peserta meninggalkan tab ujian."
+            );
+
+        }
+
+    }
+);
+
+// Mendeteksi jendela browser kehilangan fokus
+window.addEventListener("blur", function() {
+
+    if (ujianAktif) {
+
+        beriPeringatan(
+            "Jendela ujian kehilangan fokus."
+        );
+
+    }
+
+});
+
+// Fungsi peringatan
+function beriPeringatan(pesan) {
+
+    jumlahPeringatan++;
+
+    document.getElementById("counter").innerText =
+        jumlahPeringatan;
+
+    const status = document.getElementById("status");
+
+    status.innerText =
+        "⚠ PERINGATAN: " + pesan;
+
+    status.className = "status warning";
+
+    bunyikanAlarm();
+
+    catatLog(pesan);
+
+}
+
+</script>
+
+</body>
+</html>
